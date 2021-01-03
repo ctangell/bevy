@@ -24,6 +24,12 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         range: Range<u64>,
         write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     );
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &mut dyn FnMut(&[u8], &dyn RenderResourceContext),
+    );
     fn map_buffer(&self, id: BufferId);
     fn unmap_buffer(&self, id: BufferId);
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;

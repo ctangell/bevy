@@ -66,6 +66,17 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         write(&mut buffer, self);
     }
 
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        _range: Range<u64>,
+        read: &mut dyn FnMut(&[u8], &dyn RenderResourceContext),
+    ) {
+        let size = self.buffer_info.read().get(&id).unwrap().size;
+        let buffer = vec![0; size];
+        read(&buffer, self);
+    }
+
     fn map_buffer(&self, _id: BufferId) {}
 
     fn unmap_buffer(&self, _id: BufferId) {}

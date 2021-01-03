@@ -65,6 +65,45 @@ impl WgpuRenderResourceContext {
         );
     }
 
+    pub fn copy_texture_to_buffer(
+        &self,
+        command_encoder: &mut wgpu::CommandEncoder,
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        size: Extent3d,
+        destination_buffer: BufferId,
+        destination_bytes_per_row: u32,
+        destination_offset: u64,
+    ) {
+        let textures = self.resources.textures.read();
+        let texture = textures.get(&source_texture).unwrap();
+
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&destination_buffer).unwrap();
+
+        command_encoder.copy_texture_to_buffer(
+            wgpu::TextureCopyView {
+                texture,
+                mip_level: source_mip_level,
+                origin: wgpu::Origin3d {
+                    x: source_origin[0],
+                    y: source_origin[1],
+                    z: source_origin[2],
+                },
+            },
+            wgpu::BufferCopyView {
+                buffer,
+                layout: wgpu::TextureDataLayout {
+                    offset: destination_offset,
+                    bytes_per_row: destination_bytes_per_row,
+                    rows_per_image: size.height,
+                },
+            },
+            size.wgpu_into(),
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn copy_buffer_to_texture(
         &self,
@@ -543,6 +582,21 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffer_slice = buffer.slice(range);
         let mut data = buffer_slice.get_mapped_range_mut();
         write(&mut data, self);
+    }
+
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &mut dyn FnMut(&[u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let data = buffer_slice.get_mapped_range();
+        read(&data, self);
     }
 
     fn map_buffer(&self, id: BufferId) {
