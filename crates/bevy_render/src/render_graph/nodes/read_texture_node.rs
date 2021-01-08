@@ -1,17 +1,14 @@
 use crate::{
     render_graph::{Node, ResourceSlots},
     renderer::{BufferInfo, BufferUsage, RenderContext},
-    texture::{Extent3d, Texture, TextureDimension, TextureFormat},
+    texture::{Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World};
 
 pub struct ReadTextureNode {
-    read_slot: String,
-    origin: [u32; 3],
-    mip_level: u32,
-    size: Extent3d,
-    dimension: TextureDimension,
+    read_slot: usize,
+    descriptor: TextureDescriptor,
     texture_handle: Handle<Texture>,
 }
 
@@ -24,8 +21,10 @@ impl Node for ReadTextureNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
+        // const WINDOW_TEXTURE: usize = 0;
+
         let texture_id = input
-            .get_slot(self.read_slot.to_owned())
+            .get_slot(self.read_slot)
             .unwrap()
             .resource
             .as_ref()
@@ -34,30 +33,34 @@ impl Node for ReadTextureNode {
             .expect("Expected texture");
 
         let buffer_id = render_context.resources().create_buffer(BufferInfo {
-            size: self.size.volume(),
+            size: self.descriptor.size.volume(),
             buffer_usage: BufferUsage::MAP_READ | BufferUsage::COPY_DST,
             mapped_at_creation: true,
         });
 
         render_context.copy_texture_to_buffer(
             texture_id,
-            self.origin,
-            self.mip_level,
-            self.size,
+            [0, 0, 0],
+            self.descriptor.mip_level_count,
+            self.descriptor.size,
             buffer_id,
-            self.size.width,
+            self.descriptor.size.width,
             0,
         );
-        let mut buffer = Vec::<u8>::with_capacity(self.size.volume());
+        let mut buffer = Vec::<u8>::with_capacity(self.descriptor.size.volume());
         render_context.resources().read_mapped_buffer(
             buffer_id,
-            0..self.size.volume() as u64,
+            0..self.descriptor.size.volume() as u64,
             &mut |bytes, _| {
                 buffer.extend(bytes);
             },
         );
 
-        let texture = Texture::new(self.size, self.dimension, buffer, TextureFormat::default());
+        let texture = Texture::new(
+            self.descriptor.size, 
+            self.descriptor.dimension, 
+            buffer, 
+            self.descriptor.format);
         resources
             .get_mut::<Assets<Texture>>()
             .unwrap()
