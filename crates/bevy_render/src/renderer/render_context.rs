@@ -37,6 +37,17 @@ pub trait RenderContext {
         destination_mip_level: u32,
         size: Extent3d,
     );
+    #[allow(clippy::too_many_arguments)]
+    fn copy_texture_to_buffer(
+        &mut self,
+        source_texture: TextureId, 
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    );
     fn begin_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,

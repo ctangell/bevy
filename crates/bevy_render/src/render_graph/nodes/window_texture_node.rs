@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    renderer::{RenderContext, RenderResourceId, RenderResourceType},
-    texture::TextureDescriptor,
+    renderer::{BufferInfo, BufferUsage, RenderContext, RenderResourceId, RenderResourceType},
+    texture::{TextureUsage, TextureDescriptor},
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Resources, World};
@@ -70,8 +70,46 @@ impl Node for WindowTextureNode {
 
             self.descriptor.size.width = window.physical_width();
             self.descriptor.size.height = window.physical_height();
+            self.descriptor.usage |= TextureUsage::COPY_SRC; // needed to be able to read texture
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+        }
+
+        // My additions to test copy texture to buffer and getting image out of
+        // GPU
+        // 
+        // textures: ResourceRef
+        if let Some(RenderResourceId::Texture(texture)) = output.get(WINDOW_TEXTURE) {
+            let render_resource_context = render_context.resources_mut();
+            let descriptor = self.descriptor;
+            let width = descriptor.size.width as usize;
+            let aligned_width =
+                render_resource_context.get_aligned_texture_size(width);
+            let format_size = descriptor.format.pixel_size();
+            println!("{} {:?}", descriptor.format.pixel_info().type_size, descriptor.size);
+            println!("{:?}", descriptor.format);
+    
+            let texture_buffer = render_resource_context.create_buffer(BufferInfo {
+                size: descriptor.size.volume() * format_size,
+                buffer_usage: BufferUsage::MAP_READ | BufferUsage::COPY_DST,
+                mapped_at_creation: false,
+            });
+    
+            render_context.copy_texture_to_buffer(
+                texture,
+                [0, 0, 0],
+                0,
+                texture_buffer,
+                0,
+                (format_size * aligned_width) as u32,
+                descriptor.size,
+            );
+
+            let render_resource_context = render_context.resources_mut();
+            render_resource_context.myfunction(texture_buffer, descriptor);
+    
+            // remove the created buffer... for now
+            render_resource_context.remove_buffer(texture_buffer);
         }
     }
 }

@@ -67,6 +67,7 @@ impl Node for WindowSwapChainNode {
         }
 
         let swap_chain_texture = render_resource_context.next_swap_chain_texture(&window);
+
         output.set(
             WINDOW_TEXTURE,
             RenderResourceId::Texture(swap_chain_texture),

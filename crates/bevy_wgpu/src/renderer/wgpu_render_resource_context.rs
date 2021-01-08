@@ -13,13 +13,17 @@ use bevy_render::{
         RenderResourceId, SamplerId, TextureId,
     },
     shader::{glsl_to_spirv, Shader, ShaderError, ShaderSource},
-    texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
+    texture::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureFormat},
 };
 use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
+
+#[macro_use]
+use arrayref::*;
+use image;
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -143,6 +147,46 @@ impl WgpuRenderResourceContext {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn copy_texture_to_buffer(
+        &self, 
+        command_encoder: &mut wgpu::CommandEncoder,
+        source_texture: TextureId, 
+        source_origin: [u32; 3], // TODO: replace with math type
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    ) {
+        let buffers = self.resources.buffers.read();
+        let textures = self.resources.textures.read();
+
+        let source = textures.get(&source_texture).unwrap();
+        let destination = buffers.get(&destination_buffer).unwrap();
+
+        command_encoder.copy_texture_to_buffer(
+            wgpu::TextureCopyView {
+                texture: source,
+                mip_level: source_mip_level,
+                origin: wgpu::Origin3d {
+                    x: source_origin[0],
+                    y: source_origin[1],
+                    z: source_origin[2],
+                },
+            },
+            wgpu::BufferCopyView {
+                buffer: destination,
+                layout: wgpu::TextureDataLayout {
+                    offset: destination_offset,
+                    bytes_per_row: destination_bytes_per_row,
+                    rows_per_image: size.height,
+                },
+            },
+            size.wgpu_into(),
+        );
+    }
+
     pub fn create_bind_group_layout(&self, descriptor: &BindGroupDescriptor) {
         if self
             .resources
@@ -200,6 +244,45 @@ impl WgpuRenderResourceContext {
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
+
+    fn myfunction(&self, buffer_id: BufferId, descriptor: TextureDescriptor) -> () {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&buffer_id).unwrap();
+
+        // reading out from a buffer: https://github.com/gfx-rs/wgpu/issues/239
+        // now read the buffer
+        let buffer_slice = buffer.slice(..);
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        self.device.poll(wgpu::Maintain::Wait);
+        if future::block_on(buffer_future).is_ok() {
+            let data = buffer_slice.get_mapped_range();
+
+            match descriptor.format {
+                TextureFormat::Bgra8UnormSrgb => {
+                    image::save_buffer("/Users/cangell/Documents/rust/test.png", 
+                                        data.as_ref(),
+                                        descriptor.size.width,
+                                        descriptor.size.height,
+                                        image::ColorType::Bgra8);
+                },
+                    
+                TextureFormat::Depth32Float => {
+                    // todo: convert data to f32 then scale then convert to u16 then convert to &[u8]
+                    /*image::save_buffer("/Users/cangell/Documents/rust/test.png", 
+                                        data.as_ref(),
+                                        descriptor.size.width,
+                                        descriptor.size.height,
+                                        image::ColorType::L32);*/
+                },
+
+                _ => (),
+            };
+
+            drop(data);
+            buffer.unmap();
+        }
+    }
+
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId {
         let mut samplers = self.resources.samplers.write();
 
