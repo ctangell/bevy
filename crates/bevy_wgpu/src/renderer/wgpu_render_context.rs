@@ -95,22 +95,22 @@ impl RenderContext for WgpuRenderContext {
     fn copy_texture_to_buffer(
         &mut self,
         source_texture: TextureId,
-        source_origin: [u32; 3],
+        source_origin: [u32; 3], // TODO: replace with math type
         source_mip_level: u32,
-        size: Extent3d,
         destination_buffer: BufferId,
-        destination_bytes_per_row: u32,
         destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
     ) {
         self.render_resource_context.copy_texture_to_buffer(
             self.command_encoder.get_or_create(&self.device),
             source_texture,
             source_origin,
             source_mip_level,
-            size,
             destination_buffer,
-            destination_bytes_per_row,
             destination_offset,
+            destination_bytes_per_row,
+            size,
         );
     }
 

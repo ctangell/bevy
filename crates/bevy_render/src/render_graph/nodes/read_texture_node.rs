@@ -39,8 +39,12 @@ impl Node for ReadTextureNode {
 
         println!("{:?}", texture_id);
 
+        let width = self.descriptor.size.width as usize;
+        let aligned_width = render_context.resources().get_aligned_texture_size(width);
+        let format_size = self.descriptor.format.pixel_size();
+
         let buffer_id = render_context.resources().create_buffer(BufferInfo {
-            size: self.descriptor.size.volume(),
+            size: self.descriptor.size.volume() * format_size,
             buffer_usage: BufferUsage::MAP_READ | BufferUsage::COPY_DST,
             mapped_at_creation: true,
         });
@@ -49,10 +53,10 @@ impl Node for ReadTextureNode {
             texture_id,
             [0, 0, 0],
             self.descriptor.mip_level_count,
-            self.descriptor.size,
             buffer_id,
-            self.descriptor.size.width,
             0,
+            (format_size * aligned_width) as u32,
+            self.descriptor.size,
         );
 
         let mut buffer = Vec::<u8>::with_capacity(self.descriptor.size.volume());
