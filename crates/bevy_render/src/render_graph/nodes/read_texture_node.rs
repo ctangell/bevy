@@ -1,21 +1,30 @@
 use crate::{
-    render_graph::{Node, ResourceSlots},
-    renderer::{BufferInfo, BufferUsage, RenderContext},
+    render_graph::{Node, ResourceSlotInfo, ResourceSlots},
+    renderer::{BufferInfo, BufferUsage, RenderContext, RenderResourceId, RenderResourceType},
     texture::{Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World};
+use std::borrow::Cow;
 
 pub struct ReadTextureNode {
     pub descriptor: TextureDescriptor,
     pub texture_handle: Handle<Texture>,
 }
 
-impl WindowTextureNode {
+impl ReadTextureNode {
     pub const IN_TEXTURE: &'static str = "texture";
 }
 
 impl Node for ReadTextureNode {
+    fn input(&self) -> &[ResourceSlotInfo] {
+        static INPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
+            name: Cow::Borrowed(ReadTextureNode::IN_TEXTURE),
+            resource_type: RenderResourceType::Texture,
+        }];
+        INPUT
+    }
+
     fn update(
         &mut self,
         _world: &World,
@@ -24,16 +33,11 @@ impl Node for ReadTextureNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        const WINDOW_TEXTURE: usize = 0;
+        const INPUT_TEXTURE: usize = 0;
 
-        let texture_id = input
-            .get(WINDOW_TEXTURE)
-            .unwrap()
-            .resource
-            .as_ref()
-            .unwrap()
-            .get_texture()
-            .expect("Expected texture");
+        let texture_id = input.get(INPUT_TEXTURE).unwrap().get_texture().unwrap();
+
+        println!("{:?}", texture_id);
 
         let buffer_id = render_context.resources().create_buffer(BufferInfo {
             size: self.descriptor.size.volume(),
@@ -50,6 +54,7 @@ impl Node for ReadTextureNode {
             self.descriptor.size.width,
             0,
         );
+
         let mut buffer = Vec::<u8>::with_capacity(self.descriptor.size.volume());
         render_context.resources().read_mapped_buffer(
             buffer_id,
@@ -68,5 +73,7 @@ impl Node for ReadTextureNode {
             .get_mut::<Assets<Texture>>()
             .unwrap()
             .set_untracked(self.texture_handle.clone(), texture);
+
+        render_context.resources().remove_buffer(buffer_id);
     }
 }

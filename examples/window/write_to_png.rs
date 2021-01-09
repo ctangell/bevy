@@ -102,7 +102,7 @@ fn setup_pipeline(
             window_id,
             TextureDescriptor {
                 format: TextureFormat::Depth32Float,
-                usage: TextureUsage::OUTPUT_ATTACHMENT,
+                usage: TextureUsage::OUTPUT_ATTACHMENT | TextureUsage::COPY_SRC,
                 sample_count: msaa.samples,
                 ..Default::default()
             },
@@ -209,13 +209,13 @@ fn setup_pipeline(
     render_graph.add_node(
         "read_texture",
         ReadTextureNode {
-            read_slot: "texture".to_string(),
             descriptor: TextureDescriptor {
                 size: Extent3d {
                     depth: 3,
                     width: 800,
                     height: 600,
                 },
+                format: TextureFormat::Depth32Float,
                 ..Default::default()
             },
             texture_handle,
@@ -224,11 +224,17 @@ fn setup_pipeline(
 
     render_graph
         .add_slot_edge(
-            "second_window_swap_chain",
-            WindowSwapChainNode::OUT_TEXTURE,
+            "second_window_depth_texture",
+            // "second_window_swap_chain",
+            WindowTextureNode::OUT_TEXTURE,
+            //WindowSwapChainNode::OUT_TEXTURE,
             "read_texture",
             ReadTextureNode::IN_TEXTURE,
         )
+        .unwrap();
+
+    render_graph
+        .add_node_edge("second_window_pass", "read_texture")
         .unwrap();
 
     // SETUP SCENE
