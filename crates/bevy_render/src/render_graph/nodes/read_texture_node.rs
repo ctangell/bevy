@@ -7,9 +7,12 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World};
 
 pub struct ReadTextureNode {
-    read_slot: usize,
-    descriptor: TextureDescriptor,
-    texture_handle: Handle<Texture>,
+    pub descriptor: TextureDescriptor,
+    pub texture_handle: Handle<Texture>,
+}
+
+impl WindowTextureNode {
+    pub const IN_TEXTURE: &'static str = "texture";
 }
 
 impl Node for ReadTextureNode {
@@ -21,10 +24,10 @@ impl Node for ReadTextureNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        // const WINDOW_TEXTURE: usize = 0;
+        const WINDOW_TEXTURE: usize = 0;
 
         let texture_id = input
-            .get_slot(self.read_slot)
+            .get(WINDOW_TEXTURE)
             .unwrap()
             .resource
             .as_ref()

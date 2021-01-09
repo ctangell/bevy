@@ -10,6 +10,7 @@ use bevy::{
         texture::{Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
+    asset::{Assets, Handle, HandleId},
 };
 
 /// This example creates a second window and draws a mesh from two different cameras.
@@ -25,7 +26,18 @@ fn main() {
         )
         .on_state_update(STATE_STAGE, AppState::CreateWindow, setup_window.system())
         .on_state_enter(STATE_STAGE, AppState::Setup, setup_pipeline.system())
+        .add_system(png_system.system())
         .run();
+}
+
+struct TargetTexture {
+    handle_id: HandleId
+}
+
+fn png_system(assets: Res<Assets<Texture>>, query: Query<&TargetTexture>) {
+    for target in query.iter() {
+        println!("handling!");
+    }
 }
 
 const STATE_STAGE: &str = "state";
@@ -65,7 +77,7 @@ fn setup_pipeline(
     mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,
     asset_server: Res<AssetServer>,
-    assets: Res<Assets<Texture>>,
+    mut textures: ResMut<Assets<Texture>>,
     msaa: Res<Msaa>,
 ) {
     // get the non-default window id
@@ -188,16 +200,17 @@ fn setup_pipeline(
             width: 800,
             height: 600,
         },
-        ..Default::default();
+        ..Default::default()
     };
 
-    let texture_handle = assets.add(tmp_texture);
+    let texture_handle = textures.add(tmp_texture);
+    let texture_handle_id = texture_handle.id;
 
     render_graph.add_node(
         "read_texture",
         ReadTextureNode {
-            read_slot: 0,
-            descriptor: TextureDesciptor {
+            read_slot: "texture".to_string(),
+            descriptor: TextureDescriptor {
                 size: Extent3d {
                     depth: 3,
                     width: 800,
@@ -211,10 +224,10 @@ fn setup_pipeline(
 
     render_graph
         .add_slot_edge(
+            "second_window_swap_chain",
+            WindowSwapChainNode::OUT_TEXTURE,
             "read_texture",
-            WindowSwapChainNode::OUT_TEXTURE,
-            "second_window_pass",
-            WindowSwapChainNode::OUT_TEXTURE,
+            ReadTextureNode::IN_TEXTURE,
         )
         .unwrap();
 
@@ -244,5 +257,7 @@ fn setup_pipeline(
             transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
-        });
+        })
+        // Add a target texture
+        .with(TargetTexture {handle_id: texture_handle_id});
 }
