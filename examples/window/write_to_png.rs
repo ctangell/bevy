@@ -10,7 +10,7 @@ use bevy::{
         texture::{Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
-    asset::{Assets, Handle, HandleId},
+    asset::{Assets, HandleId},
 };
 
 /// This example creates a second window and draws a mesh from two different cameras.
@@ -34,8 +34,8 @@ struct TargetTexture {
     handle_id: HandleId
 }
 
-fn png_system(assets: Res<Assets<Texture>>, query: Query<&TargetTexture>) {
-    for target in query.iter() {
+fn png_system(_assets: Res<Assets<Texture>>, query: Query<&TargetTexture>) {
+    for _target in query.iter() {
         println!("handling!");
     }
 }
@@ -196,9 +196,9 @@ fn setup_pipeline(
 
     let tmp_texture = Texture {
         size: Extent3d {
-            depth: 3,
             width: 800,
             height: 600,
+            depth: 1,
         },
         ..Default::default()
     };
@@ -211,11 +211,12 @@ fn setup_pipeline(
         ReadTextureNode {
             descriptor: TextureDescriptor {
                 size: Extent3d {
-                    depth: 3,
                     width: 800,
                     height: 600,
+                    depth: 1,
                 },
                 format: TextureFormat::Depth32Float,
+                sample_count: msaa.samples,
                 ..Default::default()
             },
             texture_handle,
